@@ -4,6 +4,7 @@ import Color exposing (..)
 import Math.Vector3 exposing (..)
 import Math.Matrix4 exposing (..)
 import WebGL exposing (..)
+import Array
 
 
 type alias Drawing3DContext =
@@ -41,6 +42,7 @@ type Drawing3D
 --     )
 
 
+angle : Float -> Drawing3D -> Drawing3D
 angle a (DF f) =
   DF
     (\ctx ->
@@ -68,7 +70,18 @@ color clr (DF f) =
 
 empty : Drawing3D
 empty =
-  DF (\_ -> [])
+  DF (\ctx -> [])
+
+
+getColor ctx =
+  let
+    c =
+      toRgb ctx.color
+  in
+    vec3
+      (toFloat c.red / 255)
+      (toFloat c.green / 255)
+      (toFloat c.blue / 255)
 
 
 cube : Drawing3D
@@ -77,7 +90,7 @@ cube =
     (\ctx ->
       let
         color =
-          ctx.color
+          getColor ctx
 
         rft =
           vec3 1 1 1
@@ -118,24 +131,93 @@ cube =
     )
 
 
+unsafeGet : Int -> Array.Array a -> a
+unsafeGet idx array =
+  case Array.get idx array of
+    Just x ->
+      x
+
+    Nothing ->
+      Debug.crash ("Could not get: " ++ toString idx)
+
+
+cylinder : Drawing3D
+cylinder =
+  DF
+    (\ctx ->
+      let
+        color =
+          getColor ctx
+
+        quality =
+          40
+
+        q =
+          pi / toFloat quality / 2.0
+
+        circlePoints =
+          [0..quality]
+            |> List.map
+                (\i ->
+                  ( sin (toFloat i * q) * 0.5, cos (toFloat i * q) * 0.5 )
+                )
+            |> Array.fromList
+
+        borderCircles =
+          [ -0.5, 0.5 ]
+            |> List.map
+                (\hy ->
+                  circlePoints
+                    |> Array.map (\( x, y ) -> vec3 x y hy)
+                )
+            |> Array.fromList
+
+        vertex position =
+          Vertex color position
+      in
+        [0..quality - 1]
+          |> List.concatMap
+              (\i ->
+                let
+                  bc0 =
+                    borderCircles
+                      |> unsafeGet 0
+                      |> unsafeGet i
+
+                  bc1 =
+                    borderCircles
+                      |> unsafeGet 0
+                      |> unsafeGet (i + 1)
+
+                  triangles : List TriangleType
+                  triangles =
+                    [ -- First triangle of the rounded part
+                      N (vec3 (getX bc0) (getY bc0) 0.0)
+                    , V (vertex bc0)
+                    , N (vec3 (getX bc1) (getY bc1) 0.0)
+                    , V (vertex bc1)
+                    , V (vertex bc1)
+                      -- Second triangle of the rounded part
+                    ]
+                in
+                  []
+              )
+    )
+
+
 type alias Vertex =
   { color : Vec3
   , position : Vec3
   }
 
 
-face rawColor a b c d =
-  let
-    color =
-      let
-        c =
-          toRgb rawColor
-      in
-        vec3
-          (toFloat c.red / 255)
-          (toFloat c.green / 255)
-          (toFloat c.blue / 255)
+type TriangleType
+  = N Vec3
+  | V Vertex
 
+
+face color a b c d =
+  let
     vertex position =
       Vertex color position
   in
@@ -145,8 +227,10 @@ face rawColor a b c d =
 
 
 uniforms t =
-  { rotation = mul (makeRotate (3 * t) (vec3 0 1 0)) (makeRotate (2 * t) (vec3 1 0 0))
-  , perspective = makePerspective 45 1 1.0e-2 100
+  { rotation =
+      makeRotate 90 (vec3 0 1 0)
+      --mul (makeRotate (3 * t) (vec3 0 1 0)) (makeRotate (2 * t) (vec3 1 0 0))
+  , perspective = makePerspective 45 1 1.0e-2 0
   , camera = makeLookAt (vec3 0 0 5) (vec3 0 0 0) (vec3 0 1 0)
   , shade = 0.8
   }

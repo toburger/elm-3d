@@ -3,13 +3,14 @@ module Main (..) where
 import Color exposing (..)
 import Graphics.Element exposing (Element)
 import WebGL exposing (..)
-import Functional3D as F3D exposing (..)
+import Functional3D as Fun exposing (..)
 import Time exposing (fps)
 
 
 angleSignal : Signal Float
 angleSignal =
-  Signal.foldp (\dt theta -> 0) 0 (fps 25) -- theta + dt / 5000) 0 (fps 25)
+  -- Signal.foldp (\dt theta -> theta + dt / 5000) 0 (fps 25)
+  Signal.foldp (\dt theta -> 0) 0 (fps 25)
 
 
 ctx : Drawing3DContext
